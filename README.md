@@ -1,51 +1,65 @@
 # srvcs-isfinite
 
-The finiteness validation primitive of the srvcs.cloud distributed standard
-library.
+## Name
 
-Its single concern: **is the number finite?** JSON numbers cannot encode
-infinities or `NaN`, so any value that is a number is finite by construction.
-This service is therefore intentionally near-degenerate — it exists for catalog
-completeness. It delegates "is this a number" to
-[`srvcs-isnumber`](https://github.com/srvcs/isnumber) over HTTP, the single
-source of truth for that question, and reports that verdict as its `result`.
+| Field | Value |
+| --- | --- |
+| Service | `srvcs-isfinite` |
+| Slug | `isfinite` |
+| Repository | `srvcs/isfinite` |
+| Package | `srvcs-isfinite` |
+| Kind | `primitive` |
 
-If `srvcs-isnumber` is unreachable, `srvcs-isfinite` reports itself **degraded
-(503)** rather than guessing.
+## Function
+
+validation: is the number finite
+
+## Dependencies
+
+| Dependency | Repository |
+| --- | --- |
+| `srvcs-isnumber` | [srvcs/isnumber](https://github.com/srvcs/isnumber) |
 
 ## API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/` | Service identity, concern, and dependency list |
-| `POST` | `/` | Is `value` finite? |
-| `GET` | `/healthz` `/readyz` `/metrics` `/openapi.json` | srvcs service standard surface |
+| `GET` | `/` | Service identity |
+| `POST` | `/` | Evaluate the service function |
+| `GET` | `/healthz` | Liveness probe |
+| `GET` | `/readyz` | Readiness probe |
+| `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/openapi.json` | OpenAPI document |
 
-```sh
-curl -s -X POST localhost:8080/ -H 'content-type: application/json' -d '{"value": 4}'
-# {"value":4,"result":true}
-```
+## Inputs
 
-Responses:
+| Name | Type | Required |
+| --- | --- | --- |
+| `value` | `json` | yes |
 
-- `200 {"value": v, "result": bool}` — evaluated; `result` is `srvcs-isnumber`'s verdict.
-- `422` — the value is not a number (forwarded from `srvcs-isnumber`).
-- `503` — a dependency is unavailable.
+## Outputs
 
-## Dependencies
-
-- [`srvcs-isnumber`](https://github.com/srvcs/isnumber) — input validation and the finiteness verdict.
+| Name | Type |
+| --- | --- |
+| `value` | `json` |
+| `result` | `boolean` |
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `SRVCS_BIND_ADDR` | `0.0.0.0:8080` | Bind address |
-| `SRVCS_ISNUMBER_URL` | `http://127.0.0.1:8081` | Base URL of `srvcs-isnumber` |
 | `SRVCS_ENV` | `development` | Environment label for logs |
 | `RUST_LOG` | `info,tower_http=info` | Tracing filter |
+| `SRVCS_ISNUMBER_URL` | `http://127.0.0.1:8081` | Base URL for srvcs-isnumber |
 
-## Local checks
+## Error Behavior
+
+- `422` means the request could not be evaluated for the documented input shape.
+- `503` means a required dependency was unavailable or returned an unexpected response.
+- Dependency validation errors are forwarded when this service delegates validation.
+
+## Local Checks
 
 ```sh
 cargo fmt --check
@@ -53,9 +67,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Orchestration tests stand up a mock `srvcs-isnumber` in-process, so the suite
-runs without the rest of the fleet. See
-[`srvcs/platform`](https://github.com/srvcs/platform) for the shared standard.
+See the [srvcs service standard](https://github.com/srvcs/platform/blob/main/STANDARD.md) for the full operational contract.
 
-> Note: the `cargoHash` in `flake.nix` is inherited from the template and must be
-> refreshed with a `nix build` before the Nix gates pass.
+## Metadata
+
+Machine-readable service metadata lives in `srvcs.yaml`. Keep it aligned with this README when the service contract changes.
